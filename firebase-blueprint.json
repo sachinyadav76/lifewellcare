@@ -1,0 +1,60 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Patient account and personal demographic records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Auth UID" },
+        "name": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string", "maxLength": 30 },
+        "dob": { "type": "string" },
+        "gender": { "type": "string" },
+        "bloodType": { "type": "string" },
+        "allergies": { "type": "array" },
+        "primaryDoctorName": { "type": "string" },
+        "insuranceName": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "email"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Hospital appointment reservations made by patients",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "bookingRef": { "type": "string" },
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "patientEmail": { "type": "string" },
+        "patientPhone": { "type": "string" },
+        "doctorId": { "type": "string" },
+        "doctorName": { "type": "string" },
+        "doctorTitle": { "type": "string" },
+        "departmentId": { "type": "string" },
+        "departmentName": { "type": "string" },
+        "visitType": { "type": "string" },
+        "date": { "type": "string" },
+        "timeSlot": { "type": "string" },
+        "reason": { "type": "string" },
+        "insuranceProvider": { "type": "string" },
+        "status": { "type": "string", "enum": ["Confirmed", "Completed", "Rescheduled", "Cancelled"] },
+        "createdAt": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["bookingRef", "patientName", "patientEmail", "doctorName", "departmentName", "date", "timeSlot", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles indexed by UID"
+    },
+    "/appointments/{appointmentId}": {
+      "schema": { "$ref": "#/entities/Appointment" },
+      "description": "Patient appointment bookings"
+    }
+  }
+}

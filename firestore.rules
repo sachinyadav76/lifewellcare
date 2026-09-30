@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'lakshyakumar0003@gmail.com' ||
+        request.auth.token.email == 'sachinsawariya76@gmail.com'
+      );
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Users profile collection
+    match /users/{userId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Appointments collection
+    match /appointments/{appointmentId} {
+      // Authenticated users and admins can read/list appointments
+      allow read: if isSignedIn();
+
+      // Authenticated users can create bookings
+      allow create: if isSignedIn();
+
+      // Authenticated users and admins can update bookings (reschedule, cancel, status, notes)
+      allow update: if isSignedIn();
+
+      // Authenticated users and admins can delete bookings
+      allow delete: if isSignedIn();
+    }
+  }
+}

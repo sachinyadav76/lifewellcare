@@ -1,0 +1,6 @@
+{
+  "name": "LifeWell Medical Center",
+  "description": "LifeWell Medical Center - Premier healthcare services, comprehensive clinical departments, distinguished medical specialists, online appointment booking, and secure patient portal.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
