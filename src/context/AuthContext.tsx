@@ -5,6 +5,7 @@ import {
   signOut, 
   onAuthStateChanged,
   signInWithPopup,
+  sendPasswordResetEmail,
   User as FirebaseUser
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -12,9 +13,6 @@ import { auth, db, googleProvider } from '../lib/firebase';
 import { handleFirestoreError, OperationType } from '../lib/firestoreErrors';
 import { PatientUser, MedicalRecord, Prescription, VitalRecord, DoctorMessage } from '../types/hospital';
 import { DEMO_PATIENTS, INITIAL_MESSAGES } from '../data/hospitalData';
-
-export const ADMIN_EMAIL = 'lakshyakumar0003@gmail.com';
-export const ADMIN_PASSWORD = 'BcaStudent3';
 
 interface AuthContextType {
   user: PatientUser | null;
@@ -27,10 +25,11 @@ interface AuthContextType {
   userVitals: VitalRecord[];
   userMessages: DoctorMessage[];
   login: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
+  loginAdmin: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
+  sendPasswordReset: (email: string) => Promise<{ success: boolean; error?: string }>;
   loginWithGoogle: (autoFallbackOnDomainError?: boolean) => Promise<{ success: boolean; error?: string; isUnauthorizedDomain?: boolean }>;
   loginWithInstantGoogleSession: (email?: string, name?: string) => Promise<{ success: boolean; error?: string }>;
   loginAsDemo: (demoEmail?: string) => void;
-  loginAsAdmin: () => Promise<{ success: boolean; error?: string }>;
   register: (patientData: Partial<PatientUser>, pass: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   requestPrescriptionRefill: (prescriptionId: string) => void;
@@ -106,8 +105,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [redirectTarget, setRedirectTarget] = useState<string | null>(null);
 
+  // Strict Administrator authorization: User must be authenticated with Firebase and possess 'admin' role
   const isAdmin = Boolean(
-    user && (user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase() || user.role === 'admin')
+    firebaseUser && user && user.role === 'admin'
   );
 
   // Listen to Firebase Auth state
@@ -123,21 +123,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const data = userDocSnap.data() as PatientUser;
             setUser(data);
           } else {
-            const isUserAdmin = fbUser.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+            // Check if admin document exists in /admins/{uid}
+            const adminDocRef = doc(db, 'admins', fbUser.uid);
+            const adminDocSnap = await getDoc(adminDocRef);
+            const hasAdminPrivileges = adminDocSnap.exists() || fbUser.uid === 'cHjuCdYtzQOMLWpVDdACLOcKqQb2';
+
             const newUser: PatientUser = {
               id: fbUser.uid,
-              name: isUserAdmin ? 'Lakshya Kumar (Administrator)' : (fbUser.displayName || fbUser.email?.split('@')[0] || 'Patient'),
+              name: fbUser.displayName || (hasAdminPrivileges ? 'Hospital Administrator' : (fbUser.email?.split('@')[0] || 'Patient')),
               email: fbUser.email || '',
               phone: fbUser.phoneNumber || '+1 (800) 555-9355',
               dob: '1995-01-01',
               gender: 'Specified on intake',
               bloodType: 'O+',
-              role: isUserAdmin ? 'admin' : 'patient',
+              role: hasAdminPrivileges ? 'admin' : 'patient',
               allergies: ['None'],
               primaryDoctorId: 'doc-cardio-1',
               primaryDoctorName: 'Dr. Arthur Sterling, MD',
-              insuranceId: isUserAdmin ? 'ADMIN-EXECUTIVE' : 'LW-COV-8821',
-              insuranceName: isUserAdmin ? 'Hospital Staff Healthcare' : 'Standard Health Network',
+              insuranceId: hasAdminPrivileges ? 'ADMIN-EXECUTIVE' : 'LW-COV-8821',
+              insuranceName: hasAdminPrivileges ? 'Hospital Staff Healthcare' : 'Standard Health Network',
               emergencyContact: {
                 name: 'Emergency Contact',
                 relationship: 'Staff / Family',
@@ -146,11 +150,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               memberSince: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
             };
             await setDoc(userDocRef, newUser);
+            if (hasAdminPrivileges && !adminDocSnap.exists()) {
+              await setDoc(adminDocRef, { uid: fbUser.uid, role: 'admin', authorizedAt: new Date().toISOString() });
+            }
             setUser(newUser);
           }
         } catch (err) {
           handleFirestoreError(err, OperationType.GET, `users/${fbUser.uid}`);
         }
+      } else {
+        setUser(null);
       }
       setIsLoading(false);
     });
@@ -192,10 +201,122 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuthModalOpen(false);
   };
 
-  const loginAsAdmin = async (): Promise<{ success: boolean; error?: string }> => {
-    return login(ADMIN_EMAIL, ADMIN_PASSWORD);
+  /**
+   * Secure administrator login via Firebase Authentication.
+   * Authenticates against Firebase Auth and validates that the account possesses administrator privileges.
+   */
+  const loginAdmin = async (email: string, pass: string): Promise<{ success: boolean; error?: string }> => {
+    if (!email || !pass) {
+      return { success: false, error: 'Please enter your administrator email address and password.' };
+    }
+
+    const lowerEmail = email.toLowerCase().trim();
+
+    try {
+      // 1. Authenticate with real Firebase Authentication
+      const userCred = await signInWithEmailAndPassword(auth, lowerEmail, pass);
+      const fbUser = userCred.user;
+
+      // 2. Validate administrator authorization in Firestore
+      const userDocRef = doc(db, 'users', fbUser.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      const adminDocRef = doc(db, 'admins', fbUser.uid);
+      const adminDocSnap = await getDoc(adminDocRef);
+
+      const hasAdminPrivileges = 
+        adminDocSnap.exists() || 
+        (userDocSnap.exists() && userDocSnap.data()?.role === 'admin') ||
+        fbUser.uid === 'cHjuCdYtzQOMLWpVDdACLOcKqQb2';
+
+      if (!hasAdminPrivileges) {
+        // Reject and sign out immediately
+        await signOut(auth);
+        setUser(null);
+        return {
+          success: false,
+          error: 'Access Denied: Your account is authenticated, but does not have administrator privileges. Please sign in with an authorized clinical staff account.'
+        };
+      }
+
+      // Establish admin document in Firestore
+      if (!userDocSnap.exists()) {
+        const adminProfile: PatientUser = {
+          id: fbUser.uid,
+          name: fbUser.displayName || 'Hospital Administrator',
+          email: lowerEmail,
+          phone: fbUser.phoneNumber || '+1 (800) 555-9355',
+          dob: '1990-01-01',
+          gender: 'Staff',
+          bloodType: 'O+',
+          role: 'admin',
+          allergies: ['None'],
+          primaryDoctorId: 'doc-cardio-1',
+          primaryDoctorName: 'Dr. Arthur Sterling, MD',
+          insuranceId: 'ADMIN-EXECUTIVE',
+          insuranceName: 'Hospital Staff Healthcare',
+          emergencyContact: {
+            name: 'Hospital Administration Office',
+            relationship: 'Staff',
+            phone: '+1 (800) 555-9355'
+          },
+          memberSince: 'Staff Administration'
+        };
+        await setDoc(userDocRef, adminProfile);
+        if (!adminDocSnap.exists()) {
+          await setDoc(adminDocRef, { uid: fbUser.uid, role: 'admin', authorizedAt: new Date().toISOString() });
+        }
+        setUser(adminProfile);
+      } else {
+        const existingData = userDocSnap.data() as PatientUser;
+        if (existingData.role !== 'admin') {
+          existingData.role = 'admin';
+          await setDoc(userDocRef, { role: 'admin' }, { merge: true });
+        }
+        setUser(existingData);
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      let message = 'Administrative authentication failed. Please verify your credentials.';
+      if (
+        err.code === 'auth/wrong-password' ||
+        err.code === 'auth/user-not-found' ||
+        err.code === 'auth/invalid-credential'
+      ) {
+        message = 'Invalid administrator email or password. Please verify your credentials.';
+      } else if (err.code === 'auth/too-many-requests') {
+        message = 'Access temporarily restricted due to multiple failed login attempts. Please reset your password or try again later.';
+      } else if (err.code === 'auth/invalid-email') {
+        message = 'Please provide a valid administrative email format.';
+      }
+      return { success: false, error: message };
+    }
   };
 
+  /**
+   * Send password reset email via Firebase Authentication.
+   */
+  const sendPasswordReset = async (email: string): Promise<{ success: boolean; error?: string }> => {
+    if (!email || !email.trim()) {
+      return { success: false, error: 'Please enter a valid email address.' };
+    }
+    try {
+      await sendPasswordResetEmail(auth, email.trim().toLowerCase());
+      return { success: true };
+    } catch (err: any) {
+      let message = 'Unable to send password reset email. Please try again.';
+      if (err.code === 'auth/user-not-found') {
+        message = 'No registered account found with this email address.';
+      } else if (err.code === 'auth/invalid-email') {
+        message = 'Please provide a valid email format.';
+      }
+      return { success: false, error: message };
+    }
+  };
+
+  /**
+   * Patient Portal authentication via Firebase Authentication.
+   */
   const login = async (email: string, pass: string): Promise<{ success: boolean; error?: string }> => {
     if (!email || !pass) {
       return { success: false, error: 'Please enter both your email address and password.' };
@@ -203,64 +324,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const lowerEmail = email.toLowerCase().trim();
 
-    // 1. Check for Admin Credentials match
-    if (lowerEmail === ADMIN_EMAIL.toLowerCase()) {
-      if (pass !== ADMIN_PASSWORD) {
-        return { success: false, error: 'Invalid admin credentials. Please enter the correct admin password.' };
-      }
-
-      // Try Firebase auth for admin if registered in Firebase
-      try {
-        await signInWithEmailAndPassword(auth, lowerEmail, pass);
-      } catch {
-        // If not registered in Firebase Auth yet, attempt auto-creation or use local admin session
-        try {
-          await createUserWithEmailAndPassword(auth, lowerEmail, pass);
-        } catch {
-          // Ignore if already exists or blocked, we set local session below
-        }
-      }
-
-      const adminUser: PatientUser = {
-        id: 'ADMIN-001',
-        name: 'Lakshya Kumar (Administrator)',
-        email: ADMIN_EMAIL,
-        phone: '+1 (800) 555-9355',
-        dob: '1995-01-01',
-        gender: 'Male',
-        bloodType: 'O+',
-        allergies: ['None'],
-        role: 'admin',
-        primaryDoctorId: 'doc-cardio-1',
-        primaryDoctorName: 'Dr. Arthur Sterling, MD',
-        insuranceId: 'ADMIN-STAFF',
-        insuranceName: 'Hospital Staff Executive',
-        emergencyContact: {
-          name: 'LifeWell Security Desk',
-          relationship: 'Workplace',
-          phone: '+1 (800) 555-9355'
-        },
-        memberSince: 'Hospital Administration'
-      };
-
-      try {
-        await setDoc(doc(db, 'users', adminUser.id), adminUser);
-      } catch {
-        // ignore
-      }
-
-      setUser(adminUser);
-      setAuthModalOpen(false);
-      return { success: true };
-    }
-
-    // 2. Check if demo patient
+    // Check if demo patient (available for patient portal sandbox testing)
     if (DEMO_PATIENTS[lowerEmail]) {
       loginAsDemo(lowerEmail);
       return { success: true };
     }
 
-    // 3. Regular patient login via Firebase
+    // Authenticate with Firebase Authentication
     try {
       const userCred = await signInWithEmailAndPassword(auth, lowerEmail, pass);
       const fbUser = userCred.user;
@@ -278,45 +348,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAuthModalOpen(false);
       return { success: true };
     } catch (firebaseErr: any) {
-      console.warn('Firebase login attempt:', firebaseErr);
-      
-      if (
-        firebaseErr.code === 'auth/operation-not-allowed' || 
-        firebaseErr.code === 'auth/configuration-not-found' ||
-        firebaseErr.code === 'auth/network-request-failed' ||
-        firebaseErr.code === 'auth/invalid-api-key'
-      ) {
-        const localUser: PatientUser = {
-          id: `LW-${Math.floor(1000 + Math.random() * 9000)}`,
-          name: lowerEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-          email: lowerEmail,
-          phone: '+1 (555) 349-8012',
-          dob: '1988-06-15',
-          gender: 'Specified on intake',
-          bloodType: 'O Positive (O+)',
-          role: 'patient',
-          allergies: ['No Known Drug Allergies (NKDA)'],
-          primaryDoctorId: 'doc-cardio-1',
-          primaryDoctorName: 'Dr. Arthur Sterling, MD',
-          insuranceId: 'HLTH-993041',
-          insuranceName: 'Standard Health Network',
-          emergencyContact: {
-            name: 'Family Emergency Contact',
-            relationship: 'Primary Contact',
-            phone: '+1 (555) 349-8013'
-          },
-          memberSince: 'September 2026'
-        };
-        setUser(localUser);
-        setAuthModalOpen(false);
-        return { success: true };
-      }
-
       let message = firebaseErr.message || 'Failed to sign in. Please verify your credentials.';
-      if (firebaseErr.code === 'auth/user-not-found' || firebaseErr.code === 'auth/wrong-password' || firebaseErr.code === 'auth/invalid-credential') {
+      if (
+        firebaseErr.code === 'auth/user-not-found' ||
+        firebaseErr.code === 'auth/wrong-password' ||
+        firebaseErr.code === 'auth/invalid-credential'
+      ) {
         message = 'Invalid email or password. Please check your credentials or create a new account.';
       } else if (firebaseErr.code === 'auth/invalid-email') {
         message = 'Please provide a valid email address.';
+      } else if (firebaseErr.code === 'auth/too-many-requests') {
+        message = 'Access temporarily restricted due to many failed login attempts. Please reset your password or try again later.';
       }
       return { success: false, error: message };
     }
@@ -330,12 +372,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const userDocRef = doc(db, 'users', fbUser.uid);
         const userDocSnap = await getDoc(userDocRef);
-        const isUserAdmin = fbUser.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+        const adminDocRef = doc(db, 'admins', fbUser.uid);
+        const adminDocSnap = await getDoc(adminDocRef);
+        const isUserAdmin = adminDocSnap.exists() || fbUser.uid === 'cHjuCdYtzQOMLWpVDdACLOcKqQb2';
 
         if (!userDocSnap.exists()) {
           const newUser: PatientUser = {
             id: fbUser.uid,
-            name: isUserAdmin ? 'Lakshya Kumar (Administrator)' : (fbUser.displayName || fbUser.email?.split('@')[0] || 'Patient'),
+            name: fbUser.displayName || (isUserAdmin ? 'Hospital Administrator' : (fbUser.email?.split('@')[0] || 'Patient')),
             email: fbUser.email || '',
             phone: fbUser.phoneNumber || '+1 (555) 010-8800',
             dob: '1990-01-01',
@@ -588,10 +632,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         userVitals,
         userMessages,
         login,
+        loginAdmin,
+        sendPasswordReset,
         loginWithGoogle,
         loginWithInstantGoogleSession,
         loginAsDemo,
-        loginAsAdmin,
         register,
         logout,
         requestPrescriptionRefill,

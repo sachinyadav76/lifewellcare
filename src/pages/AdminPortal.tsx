@@ -31,15 +31,16 @@ import {
   CalendarCheck,
   Video,
   FileCheck,
-  Printer
+  Printer,
+  HelpCircle
 } from 'lucide-react';
-import { useAuth, ADMIN_EMAIL, ADMIN_PASSWORD } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { useAppointments } from '../context/AppointmentContext';
 import { DEPARTMENTS, DOCTORS } from '../data/hospitalData';
 import { Appointment } from '../types/hospital';
 
 export const AdminPortal: React.FC = () => {
-  const { user, isAdmin, login, logout, loginAsAdmin } = useAuth();
+  const { user, isAdmin, loginAdmin, logout, sendPasswordReset } = useAuth();
   const { 
     appointments, 
     bookAppointment, 
@@ -51,12 +52,18 @@ export const AdminPortal: React.FC = () => {
     isLoadingAppointments 
   } = useAppointments();
 
-  // Admin login credentials state
-  const [emailInput, setEmailInput] = useState(ADMIN_EMAIL);
-  const [passwordInput, setPasswordInput] = useState(ADMIN_PASSWORD);
+  // Admin login credentials state (clean initial state, never hardcoded or pre-filled)
+  const [emailInput, setEmailInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
+
+  // Forgot password state
+  const [isForgotPasswordView, setIsForgotPasswordView] = useState(false);
+  const [resetEmailInput, setResetEmailInput] = useState('');
+  const [resetStatus, setResetStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [resetLoading, setResetLoading] = useState(false);
 
   // Table filtering and search
   const [searchQuery, setSearchQuery] = useState('');
@@ -187,30 +194,42 @@ export const AdminPortal: React.FC = () => {
     }
   };
 
-  // Handle Admin Login submission
+  // Handle Admin Login submission via real Firebase Authentication
   const handleAdminLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
     setAuthLoading(true);
 
-    const res = await login(emailInput, passwordInput);
+    const res = await loginAdmin(emailInput, passwordInput);
     setAuthLoading(false);
 
     if (!res.success) {
-      setAuthError(res.error || 'Authentication failed. Please verify admin credentials.');
+      setAuthError(res.error || 'Authentication failed. Please verify your administrative credentials.');
+    } else {
+      setPasswordInput(''); // Zero out sensitive credentials from memory
     }
   };
 
-  // Quick 1-click test admin login
-  const handleOneClickAdminLogin = async () => {
-    setEmailInput(ADMIN_EMAIL);
-    setPasswordInput(ADMIN_PASSWORD);
-    setAuthLoading(true);
-    setAuthError(null);
-    const res = await login(ADMIN_EMAIL, ADMIN_PASSWORD);
-    setAuthLoading(false);
-    if (!res.success) {
-      setAuthError(res.error || 'Login failed');
+  // Handle Password Reset submission via Firebase Authentication
+  const handlePasswordResetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetStatus(null);
+    setResetLoading(true);
+
+    const res = await sendPasswordReset(resetEmailInput);
+    setResetLoading(false);
+
+    if (res.success) {
+      setResetStatus({
+        type: 'success',
+        message: `Password reset instructions have been sent to ${resetEmailInput}. Please check your email inbox.`
+      });
+      setResetEmailInput('');
+    } else {
+      setResetStatus({
+        type: 'error',
+        message: res.error || 'Failed to dispatch password reset email. Please verify the address.'
+      });
     }
   };
 
@@ -315,105 +334,206 @@ export const AdminPortal: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  // IF NOT AUTHENTICATED AS ADMIN: Show Admin Login Screen
+  // IF SIGNED IN BUT NOT AN ADMIN: Show Access Denied Screen
+  if (user && !isAdmin) {
+    return (
+      <div className="min-h-[75vh] flex items-center justify-center p-4">
+        <div className="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl border border-rose-200 text-center space-y-5 animate-in fade-in duration-200">
+          <div className="w-16 h-16 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto border border-rose-200 shadow-xs">
+            <AlertCircle className="w-8 h-8" />
+          </div>
+          <div>
+            <span className="text-[11px] uppercase tracking-wider font-extrabold text-rose-700 bg-rose-100 px-3 py-1 rounded-full inline-block">
+              Access Denied
+            </span>
+            <h2 className="text-xl font-extrabold text-slate-900 font-heading mt-2">
+              Administrator Privileges Required
+            </h2>
+            <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+              Signed in as <strong className="text-slate-900">{user.email}</strong>. This account does not possess clinical administration authorization.
+            </p>
+          </div>
+          <div className="pt-2">
+            <button
+              onClick={logout}
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl text-xs transition-colors shadow-xs"
+            >
+              Sign Out & Switch Account
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // IF NOT AUTHENTICATED AS ADMIN: Show Secure Admin Login Screen
   if (!isAdmin) {
     return (
       <div className="min-h-[80vh] flex items-center justify-center p-4">
-        <div className="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl border border-slate-200 space-y-6">
+        <div className="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl border border-slate-200 space-y-6 animate-in fade-in duration-200">
           <div className="text-center space-y-2">
             <div className="w-16 h-16 rounded-2xl bg-slate-900 text-teal-400 flex items-center justify-center mx-auto shadow-md border border-slate-700">
               <ShieldCheck className="w-8 h-8" />
             </div>
             <span className="text-[11px] uppercase tracking-wider font-extrabold text-teal-700 bg-teal-50 border border-teal-200 px-3 py-1 rounded-full inline-block">
-              Restricted Access
+              Authorized staff only
             </span>
             <h2 className="text-2xl font-extrabold text-slate-900 font-heading">
-              LifeWell Admin Portal
+              LifeWell Medical Center
             </h2>
+            <p className="text-sm font-semibold text-teal-700">
+              Admin Portal
+            </p>
             <p className="text-xs text-slate-500">
-              Authorized clinical officers and administrators only.
+              Secure clinical administration desk and patient management system.
             </p>
           </div>
 
-          {/* Quick Helper for Admin Credentials */}
-          <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 text-xs space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-slate-700 flex items-center gap-1.5">
-                <KeyRound className="w-3.5 h-3.5 text-teal-600" />
-                Admin Credentials
-              </span>
-              <button
-                type="button"
-                onClick={handleOneClickAdminLogin}
-                className="text-[11px] bg-teal-600 hover:bg-teal-700 text-white font-bold px-2.5 py-1 rounded-lg transition-colors shadow-2xs"
-              >
-                1-Click Admin Login
-              </button>
-            </div>
-            <div className="text-[11px] text-slate-600 font-mono space-y-0.5 bg-white p-2 rounded-xl border border-slate-200/60">
-              <p>Email: <strong className="text-slate-900">{ADMIN_EMAIL}</strong></p>
-              <p>Password: <strong className="text-slate-900">{ADMIN_PASSWORD}</strong></p>
-            </div>
-          </div>
-
           {authError && (
-            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
+            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
               <span>{authError}</span>
             </div>
           )}
 
-          <form onSubmit={handleAdminLoginSubmit} className="space-y-4 text-xs">
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">Admin Email Address</label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                <input
-                  type="email"
-                  required
-                  value={emailInput}
-                  onChange={(e) => setEmailInput(e.target.value)}
-                  placeholder="admin@lifewellmedical.org"
-                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 text-slate-900 text-sm"
-                />
-              </div>
+          {resetStatus && (
+            <div className={`p-3.5 rounded-xl text-xs flex items-start gap-2.5 ${
+              resetStatus.type === 'success' 
+                ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' 
+                : 'bg-rose-50 border border-rose-200 text-rose-700'
+            }`}>
+              {resetStatus.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
+              ) : (
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
+              )}
+              <span>{resetStatus.message}</span>
             </div>
+          )}
 
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">Admin Security Password</label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={passwordInput}
-                  onChange={(e) => setPasswordInput(e.target.value)}
-                  placeholder="Enter admin password"
-                  className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 text-slate-900 text-sm"
-                />
+          {!isForgotPasswordView ? (
+            /* Standard Admin Login Form */
+            <form onSubmit={handleAdminLoginSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                  <input
+                    type="email"
+                    required
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    placeholder="name@lifewellmedical.org"
+                    className="w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 text-slate-900 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Password
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    placeholder="Enter security password"
+                    className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 text-slate-900 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={authLoading}
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50 mt-2"
+              >
+                <span>{authLoading ? 'Verifying with Firebase...' : 'Sign In'}</span>
+                <ArrowRight className="w-4 h-4 text-teal-400" />
+              </button>
+
+              <div className="text-center pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
+                  onClick={() => {
+                    setIsForgotPasswordView(true);
+                    setAuthError(null);
+                    setResetStatus(null);
+                  }}
+                  className="text-xs font-semibold text-teal-700 hover:text-teal-800 hover:underline"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  Forgot Password?
                 </button>
               </div>
-            </div>
+            </form>
+          ) : (
+            /* Forgot Password Form */
+            <form onSubmit={handlePasswordResetSubmit} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <h4 className="font-bold text-slate-900 text-sm">
+                  Reset Administrator Password
+                </h4>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Enter your registered administrator email address and Firebase Authentication will dispatch a secure password reset link.
+                </p>
+              </div>
 
-            <button
-              type="submit"
-              disabled={authLoading}
-              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50"
-            >
-              <span>{authLoading ? 'Verifying Admin Privileges...' : 'Unlock Admin Operations'}</span>
-              <ArrowRight className="w-4 h-4 text-teal-400" />
-            </button>
-          </form>
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Administrator Email Address
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                  <input
+                    type="email"
+                    required
+                    value={resetEmailInput}
+                    onChange={(e) => setResetEmailInput(e.target.value)}
+                    placeholder="admin@lifewellmedical.org"
+                    className="w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 text-slate-900 text-sm"
+                  />
+                </div>
+              </div>
 
-          <div className="text-center pt-2">
-            <span className="text-[11px] text-slate-400">
-              Connected to Firebase Project: <strong>lifewellcare-21ee1</strong>
+              <div className="flex flex-col gap-2 pt-1">
+                <button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-xl shadow-xs transition-colors text-xs flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <span>{resetLoading ? 'Sending Reset Email...' : 'Send Password Reset Link'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsForgotPasswordView(false);
+                    setResetStatus(null);
+                  }}
+                  className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl transition-colors text-xs text-center"
+                >
+                  Back to Sign In
+                </button>
+              </div>
+            </form>
+          )}
+
+          <div className="text-center pt-2 border-t border-slate-100">
+            <span className="text-[10px] text-slate-400 font-medium">
+              LifeWell Central Hospital Administration • Firebase Authentication Protected
             </span>
           </div>
         </div>

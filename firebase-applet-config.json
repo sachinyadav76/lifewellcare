@@ -1,9 +1,12 @@
 {
+  "projectId": "lifewellcare-21ee1",
+  "appId": "1:835672595682:web:41bdb69fac1f2cfc9712bb",
   "apiKey": "AIzaSyBLMgKgegfPNpTZZkI5lygsl_mzdh4D9SU",
   "authDomain": "lifewellcare-21ee1.firebaseapp.com",
-  "projectId": "lifewellcare-21ee1",
+  "firestoreDatabaseId": "ai-studio-lifewellmedicalc-1940dab1-8fa3-4539-ac52-c57ca2c09632",
   "storageBucket": "lifewellcare-21ee1.firebasestorage.app",
   "messagingSenderId": "835672595682",
-  "appId": "1:835672595682:web:23fdd384582950b99712bb",
-  "firestoreDatabaseId": "(default)"
+  "measurementId": "",
+  "oAuthClientId": "835672595682-ccmo2c1cvgivkm6b5smdfddfvf2dh2il.apps.googleusercontent.com",
+  "recaptchaSiteKey": ""
 }

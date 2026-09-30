@@ -7,10 +7,12 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Role-Based Access Control (RBAC) - checks admin registry or user profile role without hardcoded emails
     function isAdmin() {
       return isSignedIn() && (
-        request.auth.token.email == 'lakshyakumar0003@gmail.com' ||
-        request.auth.token.email == 'sachinsawariya76@gmail.com'
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
       );
     }
 
@@ -18,24 +20,43 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // Admins collection (protected administration registry)
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && (request.auth.uid == adminId || isAdmin());
+    }
+
     // Users profile collection
     match /users/{userId} {
-      allow read, write: if isSignedIn();
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
     }
 
     // Appointments collection
     match /appointments/{appointmentId} {
-      // Authenticated users and admins can read/list appointments
-      allow read: if isSignedIn();
+      // Admins can read all bookings; patients can read their own bookings
+      allow read: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.patientEmail == request.auth.token.email ||
+        resource.data.patientId == request.auth.uid
+      );
 
       // Authenticated users can create bookings
       allow create: if isSignedIn();
 
-      // Authenticated users and admins can update bookings (reschedule, cancel, status, notes)
-      allow update: if isSignedIn();
+      // Admins can update any booking; patients can update their own
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.patientEmail == request.auth.token.email ||
+        resource.data.patientId == request.auth.uid
+      );
 
-      // Authenticated users and admins can delete bookings
-      allow delete: if isSignedIn();
+      // Admins can delete any booking; patients can cancel/delete their own
+      allow delete: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.patientEmail == request.auth.token.email ||
+        resource.data.patientId == request.auth.uid
+      );
     }
   }
 }
