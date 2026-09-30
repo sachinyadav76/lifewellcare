@@ -11,11 +11,13 @@ import {
   Languages, 
   GraduationCap, 
   Award, 
-  CheckCircle,
-  X,
-  Stethoscope,
-  ChevronRight
+  CheckCircle, 
+  X, 
+  Stethoscope, 
+  ChevronRight,
+  Sparkles
 } from 'lucide-react';
+import { getDayName } from '../services/aiAppointmentService';
 
 interface DoctorsProps {
   onOpenBookingWithDoctor: (doctorId: string, deptId?: string) => void;
@@ -34,17 +36,68 @@ export const Doctors: React.FC<DoctorsProps> = ({
   const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const languagesList = ['English', 'Spanish', 'Mandarin', 'Arabic', 'Russian', 'Hindi', 'French'];
 
+  const smartSearchSuggestions = [
+    'doctor available tomorrow',
+    'cardiologist Saturday evening',
+    'dental appointment after 5 PM',
+    'female dermatologist',
+    'doctor near me'
+  ];
+
+  const handleApplySmartSearch = (term: string) => {
+    setSearchQuery(term);
+  };
+
   const filteredDoctors = useMemo(() => {
+    const rawQuery = searchQuery.toLowerCase().trim();
+
+    // Check for natural language intent keywords
+    const isTomorrow = rawQuery.includes('tomorrow') || rawQuery.includes('kal');
+    const isSaturday = rawQuery.includes('saturday') || rawQuery.includes('shanivar');
+    const isCardio = rawQuery.includes('cardiologist') || rawQuery.includes('heart') || rawQuery.includes('cardio');
+    const isDental = rawQuery.includes('dental') || rawQuery.includes('dentist') || rawQuery.includes('teeth');
+    const isDerma = rawQuery.includes('dermatologist') || rawQuery.includes('skin');
+    const isFemale = rawQuery.includes('female') || rawQuery.includes('woman');
+
+    // Tomorrow's day name
+    let tomorrowDayName = '';
+    if (isTomorrow) {
+      const tmrw = new Date();
+      tmrw.setDate(tmrw.getDate() + 1);
+      tomorrowDayName = getDayName(tmrw.toISOString().split('T')[0]);
+    }
+
     return DOCTORS.filter((doc) => {
-      // Search text match
-      const query = searchQuery.toLowerCase().trim();
+      // 1. Natural Language Smart Search Interpretation
+      if (isCardio && doc.departmentId !== 'cardiology') return false;
+      if (isDental && doc.departmentId !== 'dental') return false;
+      if (isDerma && doc.departmentId !== 'dermatology') return false;
+      if (isSaturday && !doc.availableDays.includes('Saturday')) return false;
+      if (isTomorrow && !doc.availableDays.includes(tomorrowDayName)) return false;
+      
+      // Female doctors filter
+      if (isFemale) {
+        const femaleNames = ['sarah', 'elena', 'anita', 'evelyn', 'maya', 'nadia', 'rachel', 'alena', 'sunita', 'cynthia'];
+        const isMatchFemale = femaleNames.some(f => doc.name.toLowerCase().includes(f));
+        if (!isMatchFemale) return false;
+      }
+
+      // If smart search triggered specific filters, check other text matches or pass
+      const cleanedQuery = rawQuery
+        .replace(/doctor available tomorrow/g, '')
+        .replace(/cardiologist saturday evening/g, '')
+        .replace(/dental appointment after 5 pm/g, '')
+        .replace(/female dermatologist/g, '')
+        .replace(/doctor near me/g, '')
+        .trim();
+
       const matchesSearch =
-        !query ||
-        doc.name.toLowerCase().includes(query) ||
-        doc.title.toLowerCase().includes(query) ||
-        doc.departmentName.toLowerCase().includes(query) ||
-        doc.specialties.some(s => s.toLowerCase().includes(query)) ||
-        doc.bio.toLowerCase().includes(query);
+        !cleanedQuery ||
+        doc.name.toLowerCase().includes(cleanedQuery) ||
+        doc.title.toLowerCase().includes(cleanedQuery) ||
+        doc.departmentName.toLowerCase().includes(cleanedQuery) ||
+        doc.specialties.some(s => s.toLowerCase().includes(cleanedQuery)) ||
+        doc.bio.toLowerCase().includes(cleanedQuery);
 
       // Dept match
       const matchesDept = selectedDept === 'all' || doc.departmentId === selectedDept;
@@ -103,6 +156,27 @@ export const Doctors: React.FC<DoctorsProps> = ({
                 <X className="w-4 h-4" />
               </button>
             )}
+          </div>
+
+          {/* AI Smart Search Natural Language Chips */}
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+            <span className="text-[11px] text-teal-300 font-semibold flex items-center gap-1">
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              Smart Search:
+            </span>
+            {smartSearchSuggestions.map((suggestion, i) => (
+              <button
+                key={i}
+                onClick={() => handleApplySmartSearch(suggestion)}
+                className={`text-xs px-3 py-1 rounded-full border transition-all ${
+                  searchQuery === suggestion
+                    ? 'bg-teal-500 text-white border-teal-400 font-bold shadow-xs'
+                    : 'bg-white/10 hover:bg-white/20 text-slate-200 border-white/20 hover:border-teal-400/50'
+                }`}
+              >
+                "{suggestion}"
+              </button>
+            ))}
           </div>
         </div>
       </section>
@@ -286,7 +360,7 @@ export const Doctors: React.FC<DoctorsProps> = ({
                     className="w-full py-2 px-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 active:scale-95"
                   >
                     <Calendar className="w-3.5 h-3.5" />
-                    <span>Book Visit</span>
+                    <span>Book Appointment</span>
                   </button>
                 </div>
               </div>

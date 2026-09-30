@@ -32,31 +32,36 @@ service cloud.firestore {
       allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
     }
 
+    // Doctors and Departments directory collections (publicly readable for patients and AI assistant)
+    match /doctors/{doctorId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /departments/{deptId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // Appointments collection
     match /appointments/{appointmentId} {
-      // Admins can read all bookings; patients can read their own bookings
-      allow read: if isSignedIn() && (
-        isAdmin() ||
-        resource.data.patientEmail == request.auth.token.email ||
-        resource.data.patientId == request.auth.uid
-      );
+      // Patients and admins can read bookings; public can check slot availability
+      allow read: if true;
 
-      // Authenticated users can create bookings
-      allow create: if isSignedIn();
+      // Anyone can create an appointment (registered user or guest via AI assistant / portal)
+      allow create: if true;
 
       // Admins can update any booking; patients can update their own
-      allow update: if isSignedIn() && (
-        isAdmin() ||
+      allow update: if isAdmin() || (isSignedIn() && (
         resource.data.patientEmail == request.auth.token.email ||
         resource.data.patientId == request.auth.uid
-      );
+      ));
 
       // Admins can delete any booking; patients can cancel/delete their own
-      allow delete: if isSignedIn() && (
-        isAdmin() ||
+      allow delete: if isAdmin() || (isSignedIn() && (
         resource.data.patientEmail == request.auth.token.email ||
         resource.data.patientId == request.auth.uid
-      );
+      ));
     }
   }
 }

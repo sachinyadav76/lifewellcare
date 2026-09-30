@@ -160,6 +160,46 @@ export const DEPARTMENTS: Department[] = [
     ],
     commonConditions: ['Gastroesophageal Reflux (GERD)', 'Ulcerative Colitis', 'Irritable Bowel Syndrome', 'Gallstones', 'Celiac Disease'],
     technologies: ['Olympus EVIS X1 Endoscopy System', 'FibroScan Liver Elastography', 'PillCam SB3 Capsule Endoscopy']
+  },
+  {
+    id: 'dermatology',
+    name: 'Dermatology & Skin Care',
+    tagline: 'Precision clinical dermatology, skin cancer screenings, and laser aesthetics.',
+    description: 'Expert medical and cosmetic care for hair, skin, and nail conditions. Utilizing advanced dermoscopy, targeted phototherapy, and non-surgical aesthetic enhancements.',
+    iconName: 'Sparkles',
+    headOfDepartment: 'Dr. Sarah Sharma, MD, FAAD',
+    floor: 'Building B, 3rd Floor',
+    phoneExtension: 'Ext. 3800',
+    image: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=800&q=80',
+    keyServices: [
+      'Comprehensive Skin Cancer & Mole Mapping',
+      'Advanced Acne & Rosacea Management',
+      'Psoriasis & Eczema Biologic Therapies',
+      'Pediatric & Adolescent Dermatology',
+      'Laser Skin Resurfacing & Scar Revision'
+    ],
+    commonConditions: ['Severe Acne', 'Eczema & Dermatitis', 'Psoriasis', 'Melanoma & Basal Cell Carcinoma', 'Hair Loss & Alopecia'],
+    technologies: ['FotoFinder Body Dermoscopy', 'Candela Vbeam Pulsed Dye Laser', 'Excimer Targeted Phototherapy']
+  },
+  {
+    id: 'dental',
+    name: 'Dental & Maxillofacial Care',
+    tagline: 'Comprehensive restorative, orthodontic, and surgical dental excellence.',
+    description: 'State-of-the-art dental suites providing gentle general dentistry, 3D guided implantology, smile design, and pediatric dental care with maximum patient comfort.',
+    iconName: 'Smile',
+    headOfDepartment: 'Dr. Rajesh Sharma, BDS, MDS',
+    floor: 'Building C, Ground Floor',
+    phoneExtension: 'Ext. 1200',
+    image: 'https://images.unsplash.com/photo-1606811841689-23dfddce3e95?auto=format&fit=crop&w=800&q=80',
+    keyServices: [
+      'Digital Smile Design & Cosmetic Veneers',
+      'Single-Visit Root Canal Therapy',
+      '3D CBCT Guided Dental Implants',
+      'Invisalign & Clear Orthodontics',
+      'Gentle Pediatric Dentistry & Preventive Care'
+    ],
+    commonConditions: ['Dental Caries & Cavities', 'Periodontal Gum Disease', 'Impacted Wisdom Teeth', 'Malocclusion', 'Tooth Loss'],
+    technologies: ['Planmeca 3D CBCT Imaging', 'CEREC CAD/CAM Same-Day Crowns', 'Waterlase Dental Laser']
   }
 ];
 
@@ -548,6 +588,88 @@ export const DOCTORS: Doctor[] = [
     consultationFee: 195,
     acceptingNewPatients: true,
     officeLocation: 'Suite A-108'
+  },
+
+  // DERMATOLOGY (2 Doctors)
+  {
+    id: 'doc-derma-1',
+    name: 'Dr. Sarah Sharma',
+    title: 'MD, FAAD - Chief of Dermatology & Aesthetic Medicine',
+    departmentId: 'dermatology',
+    departmentName: 'Dermatology & Skin Care',
+    specialties: ['Clinical Dermatology', 'Acne & Eczema Therapy', 'Skin Cancer Screening', 'Laser Dermatology'],
+    education: 'All India Institute of Medical Sciences (AIIMS) • Johns Hopkins Fellowship',
+    experienceYears: 18,
+    rating: 4.96,
+    reviewCount: 342,
+    image: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=600&q=80',
+    bio: 'Dr. Sarah Sharma is a renowned dermatologist specializing in medical skin conditions, acne therapeutics, and advanced laser aesthetics. She delivers compassionate, personalized skin health care.',
+    availableDays: ['Monday', 'Wednesday', 'Friday', 'Saturday'],
+    languages: ['English', 'Hindi'],
+    consultationFee: 200,
+    acceptingNewPatients: true,
+    officeLocation: 'Suite B-302',
+    awards: ['Top Dermatologist Excellence Award', 'AAD Research Fellow']
+  },
+  {
+    id: 'doc-derma-2',
+    name: 'Dr. Alena Roy',
+    title: 'MD - Consultant Pediatric & Cosmetic Dermatologist',
+    departmentId: 'dermatology',
+    departmentName: 'Dermatology & Skin Care',
+    specialties: ['Pediatric Dermatology', 'Psoriasis Biologics', 'Cosmetic Skin Rejuvenation'],
+    education: 'Yale School of Medicine',
+    experienceYears: 10,
+    rating: 4.89,
+    reviewCount: 188,
+    image: 'https://images.unsplash.com/photo-1594824813583-4a6f7b9cf41d?auto=format&fit=crop&w=600&q=80',
+    bio: 'Dr. Roy specializes in gentle childhood skin disorders, sensitive skin barriers, and non-invasive cosmetic therapies.',
+    availableDays: ['Tuesday', 'Thursday', 'Saturday'],
+    languages: ['English', 'Bengali'],
+    consultationFee: 185,
+    acceptingNewPatients: true,
+    officeLocation: 'Suite B-306'
+  },
+
+  // DENTAL CARE (2 Doctors)
+  {
+    id: 'doc-dental-1',
+    name: 'Dr. Rajesh Sharma',
+    title: 'BDS, MDS, FICOI - Senior Dental Surgeon & Implantologist',
+    departmentId: 'dental',
+    departmentName: 'Dental & Maxillofacial Care',
+    specialties: ['Dental Implants', 'Restorative Dentistry', 'Root Canal Treatment', 'Smile Makeovers'],
+    education: 'Manipal College of Dental Sciences • NYU Advanced Implant Training',
+    experienceYears: 20,
+    rating: 4.94,
+    reviewCount: 290,
+    image: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=600&q=80',
+    bio: 'Dr. Rajesh Sharma brings two decades of expertise in precision dental surgery, pain-free root canals, and single-day computer-guided implant restorations.',
+    availableDays: ['Tuesday', 'Thursday', 'Friday', 'Saturday'],
+    languages: ['English', 'Hindi', 'Punjabi'],
+    consultationFee: 160,
+    acceptingNewPatients: true,
+    officeLocation: 'Suite C-101',
+    awards: ['Best Dental Specialist Award', 'ICOI Master Clinician']
+  },
+  {
+    id: 'doc-dental-2',
+    name: 'Dr. Anita Desai',
+    title: 'DDS, MS - Specialist Orthodontist & Clear Aligner Expert',
+    departmentId: 'dental',
+    departmentName: 'Dental & Maxillofacial Care',
+    specialties: ['Invisalign & Clear Aligners', 'Pediatric Orthodontics', 'TMJ Jaw Therapy'],
+    education: 'University of Pennsylvania School of Dental Medicine',
+    experienceYears: 13,
+    rating: 4.91,
+    reviewCount: 215,
+    image: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=600&q=80',
+    bio: 'Specializing in digital smile transformations for adolescents and adults utilizing state-of-the-art clear aligner biomechanics and 3D digital imaging.',
+    availableDays: ['Monday', 'Wednesday', 'Saturday'],
+    languages: ['English', 'Gujarati', 'Hindi'],
+    consultationFee: 150,
+    acceptingNewPatients: true,
+    officeLocation: 'Suite C-104'
   }
 ];
 

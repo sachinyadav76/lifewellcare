@@ -5,6 +5,7 @@ import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { AuthModal } from './components/AuthModal';
 import { DoctorDetailModal } from './components/DoctorDetailModal';
+import { AIAssistantChat } from './components/AIAssistantChat';
 import { Home } from './pages/Home';
 import { About } from './pages/About';
 import { Departments } from './pages/Departments';
@@ -19,6 +20,7 @@ export default function App() {
   const [preselectedDoctorId, setPreselectedDoctorId] = useState<string | null>(null);
   const [preselectedDeptId, setPreselectedDeptId] = useState<string | null>(null);
   const [selectedDoctorDetail, setSelectedDoctorDetail] = useState<Doctor | null>(null);
+  const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
 
   const handleOpenBooking = () => {
     setPreselectedDoctorId(null);
@@ -135,6 +137,20 @@ export default function App() {
             onClose={() => setSelectedDoctorDetail(null)}
             onBookDoctor={(doc) => {
               handleOpenBookingWithDoctor(doc.id, doc.departmentId);
+            }}
+          />
+
+          {/* AI-Powered Doctor Appointment Assistant */}
+          <AIAssistantChat
+            isOpen={isAIAssistantOpen}
+            onToggle={() => setIsAIAssistantOpen(!isAIAssistantOpen)}
+            onClose={() => setIsAIAssistantOpen(false)}
+            onNavigateToPortal={() => {
+              setCurrentPage('portal');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onNavigateToBooking={(docId, deptId) => {
+              handleOpenBookingWithDoctor(docId || '', deptId);
             }}
           />
 

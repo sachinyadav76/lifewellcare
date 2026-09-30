@@ -30,6 +30,7 @@ interface AppointmentContextType {
   setSelectedDoctor: (doctorId: string | null, deptId?: string | null) => void;
   lastBookedAppointment: Appointment | null;
   setLastBookedAppointment: (apt: Appointment | null) => void;
+  addAppointment: (apt: Appointment) => void;
   isLoadingAppointments: boolean;
 }
 
@@ -262,6 +263,11 @@ export const AppointmentProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   };
 
+  const addAppointment = (apt: Appointment) => {
+    setAppointments(prev => [apt, ...prev.filter(a => a.id !== apt.id)]);
+    setLastBookedAppointment(apt);
+  };
+
   return (
     <AppointmentContext.Provider
       value={{
@@ -279,6 +285,7 @@ export const AppointmentProvider: React.FC<{ children: React.ReactNode }> = ({ c
         setSelectedDoctor,
         lastBookedAppointment,
         setLastBookedAppointment,
+        addAppointment,
         isLoadingAppointments
       }}
     >
